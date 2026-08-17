@@ -23,22 +23,52 @@ PAGE = """
             max-width: 800px;
             margin: 30px auto;
             padding: 20px;
+            background: #f5f7fa;
         }
 
         .card {
+            background: white;
             border: 1px solid #ddd;
             border-radius: 12px;
             padding: 20px;
+        }
+
+        h1 {
+            margin-bottom: 10px;
         }
 
         button {
             padding: 12px 18px;
             margin: 8px 0;
             cursor: pointer;
+            border-radius: 6px;
+            border: 1px solid #888;
+            background: #f0f0f0;
+        }
+
+        select {
+            padding: 10px;
+            width: 100%;
+            max-width: 500px;
+            margin: 8px 0;
         }
 
         li {
             margin: 10px 0;
+        }
+
+        .message {
+            margin-top: 15px;
+            padding: 12px;
+            background: #e8f5e9;
+            border-radius: 6px;
+        }
+
+        .warning {
+            margin-top: 15px;
+            padding: 12px;
+            background: #fff3cd;
+            border-radius: 6px;
         }
     </style>
 </head>
@@ -54,6 +84,8 @@ PAGE = """
         {{ database }}
     </p>
 
+    <!-- CREATE BACKUP -->
+
     <form method="post" action="/backup">
         <button type="submit">
             Create Backup
@@ -61,9 +93,9 @@ PAGE = """
     </form>
 
     {% if message %}
-        <p>
+        <div class="message">
             <strong>{{ message }}</strong>
-        </p>
+        </div>
     {% endif %}
 
     <h2>Available Backups</h2>
@@ -83,6 +115,50 @@ PAGE = """
         {% endfor %}
 
         </ul>
+
+        <!-- RESTORE BACKUP -->
+
+        <h2>Restore Database</h2>
+
+        <div class="warning">
+            <strong>Warning:</strong>
+            Restoring a backup will replace the current clinic database.
+        </div>
+
+        <form method="post" action="/restore">
+
+            <label for="backup">
+                Select backup to restore:
+            </label>
+
+            <br>
+
+            <select name="backup" id="backup" required>
+
+                <option value="">
+                    -- Select a backup --
+                </option>
+
+                {% for backup in backups %}
+
+                    <option value="{{ backup }}">
+                        {{ backup }}
+                    </option>
+
+                {% endfor %}
+
+            </select>
+
+            <br>
+
+            <button type="submit"
+                    onclick="return confirm('Are you sure you want to restore this backup? The current database will be replaced.');">
+
+                Restore Selected Backup
+
+            </button>
+
+        </form>
 
     {% else %}
 
@@ -157,6 +233,55 @@ def download(filename):
         path,
         as_attachment=True
     )
+
+
+@app.route("/restore", methods=["POST"])
+def restore():
+
+    filename = request.form.get("backup")
+
+    if not filename:
+
+        return redirect(
+            url_for(
+                "home",
+                message="Please select a backup to restore."
+            )
+        )
+
+    backup_path = BACKUP_DIR / filename
+
+    if not backup_path.exists() or backup_path.suffix != ".db":
+
+        return redirect(
+            url_for(
+                "home",
+                message="Selected backup was not found."
+            )
+        )
+
+    try:
+
+        shutil.copy2(
+            backup_path,
+            DATABASE
+        )
+
+        return redirect(
+            url_for(
+                "home",
+                message=f"Database successfully restored from {filename}"
+            )
+        )
+
+    except Exception as e:
+
+        return redirect(
+            url_for(
+                "home",
+                message=f"Restore failed: {str(e)}"
+            )
+        )
 
 
 if __name__ == "__main__":
